@@ -1,0 +1,15 @@
+services:
+  web-app:
+    # Замени vladilyse на свой логин Docker Hub, если он другой
+    image: vladilyse/aws-lab5-app:latest
+    ports:
+      - "80:80"
+    restart: always
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Интервал проверки обновлений (30 секунд)
+    command: --interval 30
+    restart: always
