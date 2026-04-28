@@ -5,7 +5,6 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # 1. ЗБІРКА ТА ПУШ В DOCKER HUB
   build-and-push:
     runs-on: ubuntu-latest
     steps:
@@ -21,11 +20,10 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./app  # Вказуємо папку app, як на твоєму скріншоті
+          context: ./app
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/aws-lab5-app:latest
 
-  # 2. ДЕПЛОЙ НА СЕРВЕР EC2
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -33,30 +31,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Копіюємо файл docker-compose.yml на сервер (він лежить в корені)
       - name: Copy docker-compose to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu # ВКАЗАЛИ UBUNTU
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml"
-          target: "~/"
+          target: "/home/ubuntu/"
 
-      # Заходимо по SSH і запускаємо контейнери
       - name: Execute remote SSH commands
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu # ВКАЗАЛИ UBUNTU
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Авторизуємось в Docker Hub на сервері
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            # Команди для Ubuntu: встановлюємо Docker, якщо його ще немає
+            if ! [ -x "$(command -v docker)" ]; then
+              sudo apt-get update
+              sudo apt-get install -y docker.io docker-compose
+              sudo usermod -aG docker ubuntu
+            fi
             
-            # Оновлюємо образ та перезапускаємо контейнери
-            docker-compose pull
-            docker-compose up -d
-            
-            # Видаляємо старі образи, щоб не займали місце
-            docker image prune -f
+            # Авторизація та запуск
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            sudo docker-compose pull
+            sudo docker-compose up -d
+            sudo docker image prune -f
