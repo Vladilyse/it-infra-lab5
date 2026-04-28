@@ -2,9 +2,10 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ] # Срабатывает, когда ты делаешь Push в GitHub Desktop
+    branches: [ "main" ]
 
 jobs:
+  # 1. ЗБІРКА ТА ПУШ В DOCKER HUB
   build-and-push:
     runs-on: ubuntu-latest
     steps:
@@ -20,6 +21,42 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./app  # Мы указываем папку app, где лежит наш Dockerfile
+          context: ./app  # Вказуємо папку app, як на твоєму скріншоті
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/aws-lab5-app:latest
+
+  # 2. ДЕПЛОЙ НА СЕРВЕР EC2
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Копіюємо файл docker-compose.yml на сервер (він лежить в корені)
+      - name: Copy docker-compose to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: "~/"
+
+      # Заходимо по SSH і запускаємо контейнери
+      - name: Execute remote SSH commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Авторизуємось в Docker Hub на сервері
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            
+            # Оновлюємо образ та перезапускаємо контейнери
+            docker-compose pull
+            docker-compose up -d
+            
+            # Видаляємо старі образи, щоб не займали місце
+            docker image prune -f
