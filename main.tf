@@ -44,7 +44,7 @@ resource "aws_instance" "web_server" {
   vpc_security_group_ids = [aws_security_group.lab6_sg.id]
 
   # Переконайся, що створив цей ключ у консолі регіону us-east-1
-  key_name               = "terraform-lab-key" 
+  key_name = "final-ed25519"
 
   user_data = <<-EOF
               #!/bin/bash
