@@ -13,7 +13,7 @@ provider "aws" {
 
 # ЦЕЙ БЛОК МАЄ БУТИ ОБОВ'ЯЗКОВО:
 resource "aws_security_group" "lab6_sg" {
-  name        = "allow_web_ssh_lab6"
+  name        = "allow_web_ssh_lab6_new"
   description = "Allow SSH and HTTP"
 
   ingress {
